@@ -8,10 +8,18 @@ from threading import Thread
 import socket
 from KissHelper import SerialParser
 import KissHelper
-
+import config
+import datetime
+import time
+import config
 
 def logf(message):
-    print(message, file=sys.stderr)
+    #print(message, file=sys.stderr)
+    timestamp = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S - ')
+    fileLog = open(config.syslogpath,"a")
+    fileLog.write(timestamp + message+"\n")
+    print(timestamp + message+"\n")
+    fileLog.close()
 
 
 class KissServer(Thread):
@@ -45,10 +53,13 @@ class KissServer(Thread):
                     self.connection.close()
                     break
 
-    def queue_frame(self, frame):
-        print("KISS frame:", repr(data))
-        decoded_data = KissHelper.decode_kiss(frame)
-        print("Decoded:", decoded_data)
+    def queue_frame(self, frame, verbose=True):
+        logf("KISS frame:", repr(frame))
+        if config.TX_OE_Style:
+            decoded_data = KissHelper.decode_kiss_OE(frame)
+        else:
+            decoded_data = KissHelper.decode_kiss_AX25(frame)
+        logf("Decoded:", decoded_data)
         
         self.txQueue.put(decoded_data, block=False)
 
@@ -56,19 +67,31 @@ class KissServer(Thread):
         self.socket.shutdown()
 
     def send(self, data, metadata):
-        try:
-            encoded_data = KissHelper.encode_kiss(data)
-        except Exception as e:
-            print("KISS encoding went wrong (exception while parsing)")
-            traceback.print_tb(e.__traceback__)
-            encoded_data = None
-
+        LORA_APRS_HEADER = b"<\xff\x01"
+        # remove LoRa-APRS header if present
+        if data[0:len(LORA_APRS_HEADER)] == LORA_APRS_HEADER:
+            data = data[len(LORA_APRS_HEADER):]
+            logf("OE_Style header found!")
+            try:
+                encoded_data = KissHelper.encode_kiss_OE(data)
+            except Exception as e:
+                logf("KISS encoding went wrong (exception while parsing)")
+                traceback.print_tb(e.__traceback__)
+                encoded_data = None
+        else:
+            logf("No OE_Style header found, trying Standard AX25 decoding...")
+            try:
+                encoded_data = KissHelper.encode_kiss_AX25(data)
+            except Exception as e:
+                logf("KISS encoding went wrong (exception while parsing)")
+                traceback.print_tb(e.__traceback__)
+                encoded_data = None
         if encoded_data != None:
-            print("To Server: " + repr(encoded_data))
+            logf("To Server: " + repr(encoded_data))
             if self.connection:
                 self.connection.sendall(encoded_data)
         else:
-            print("KISS encoding went wrong")
+            logf("KISS encoding went wrong")
         
 
 
@@ -91,4 +114,4 @@ if __name__ == '__main__':
         server.send(
             "\xc0\x00\x82\xa0\xa4\xa6@@`\x9e\x8ar\xa8\x96\x90q\x03\xf0!4725.51N/00939.86E[322/002/A=001306 Batt=3.99V\xc0")
         data = KissQueue.get()
-        print("Received KISS frame:" + repr(data))
+        logf("Received KISS frame:" + repr(data))
