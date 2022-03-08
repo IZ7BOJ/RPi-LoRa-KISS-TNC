@@ -61,7 +61,68 @@ def decode_address(data, cursor):
     return (call, hrr, ext)
 
 
-def encode_kiss(frame):
+def encode_kiss_AX25(frame): #from Lora to Kiss, Standard AX25
+    packet=frame #no manipulation needed in case of ax25 packets
+    
+    pos = 0
+    
+    # DST
+    (dest_addr, dest_hrr, dest_ext) = decode_address(frame, pos)
+    pos += 7
+    print("DST: ", dest_addr)
+    
+    # SRC
+    (src_addr, src_hrr, src_ext) = decode_address(frame, pos)
+    pos += 7
+    print("SRC: ", src_addr)
+
+    # REPEATERS
+    ext = src_ext
+    while ext == 0:
+        rpt_addr, rpt_hrr, ext = decode_address(frame, pos)
+        print("RPT: ", rpt_addr)
+        pos += 7
+        
+    # CTRL
+    
+    ctrl = frame[pos]
+    pos += 1
+    if (ctrl & 0x3) == 0x3:
+        #(pid,) = struct.unpack("<B", frame[pos])
+        pid = frame[pos]
+        print("PID: "+str(pid))
+        pos += 1
+        
+    elif (ctrl & 0x3) == 0x1:
+        # decode_sframe(ctrl, frame, pos)
+        print("SFRAME")
+        return None
+    elif (ctrl & 0x1) == 0x0:
+        # decode_iframe(ctrl, frame, pos)
+        print("IFRAME")
+        return None
+        
+    # Escape the packet in case either KISS_FEND or KISS_FESC ended up in our stream
+    packet_escaped = []
+    for x in packet:
+        if x == KISS_FEND:
+            packet_escaped += [KISS_FESC, KISS_TFEND]
+        elif x == KISS_FESC:
+            packet_escaped += [KISS_FESC, KISS_TFESC]
+        else:
+            packet_escaped += [x]
+
+    # Build the frame that we will send via Kiss and turn it into a string
+    kiss_cmd = 0x00  # Two nybbles combined - TNC 0, command 0 (send data)
+    kiss_frame = [KISS_FEND, kiss_cmd] + packet_escaped + [KISS_FEND]
+    try:
+        output = bytearray(kiss_frame)
+    except ValueError:
+        print("Invalid value in frame.")
+        return None
+    return output
+
+def encode_kiss_OE(frame): #from Lora to Kiss, OE_Style
     # Ugly frame disassembling
     if not b":" in frame:
         return None
@@ -103,8 +164,7 @@ def encode_kiss(frame):
         return None
     return output
 
-
-def decode_kiss(frame):
+def decode_kiss_OE(frame): #From Kiss to LoRa, OE_Style
     result = b""
     pos = 0
     if frame[pos] != 0xC0 or frame[len(frame) - 1] != 0xC0:
@@ -116,12 +176,12 @@ def decode_kiss(frame):
     # DST
     (dest_addr, dest_hrr, dest_ext) = decode_address(frame, pos)
     pos += 7
-    # print("DST: ", dest_addr)
+    print("DST: ", dest_addr)
 
     # SRC
     (src_addr, src_hrr, src_ext) = decode_address(frame, pos)
     pos += 7
-    # print("SRC: ", src_addr)
+    print("SRC: ", src_addr)
 
     result += src_addr.strip()
     # print(type(result), type(dest_addr.strip()))
@@ -131,7 +191,7 @@ def decode_kiss(frame):
     ext = src_ext
     while ext == 0:
         rpt_addr, rpt_hrr, ext = decode_address(frame, pos)
-        # print("RPT: ", rpt_addr)
+        print("RPT: ", rpt_addr)
         pos += 7
         result += b"," + rpt_addr.strip()
 
@@ -156,6 +216,52 @@ def decode_kiss(frame):
         print("IFRAME")
         return None
 
+    return result
+
+def decode_kiss_AX25(frame): #from kiss to LoRA, Standard AX25
+    result = b""
+    pos = 0
+    if frame[pos] != 0xC0 or frame[len(frame) - 1] != 0xC0:
+        print(frame[pos], frame[len(frame) - 1])
+        return None
+    pos += 1
+    pos += 1
+
+    # DST
+    (dest_addr, dest_hrr, dest_ext) = decode_address(frame, pos)
+    pos += 7
+    print("DST: ", dest_addr)
+
+    # SRC
+    (src_addr, src_hrr, src_ext) = decode_address(frame, pos)
+    pos += 7
+    print("SRC: ", src_addr)
+
+    # REPEATERS
+    ext = src_ext
+    while ext == 0:
+        rpt_addr, rpt_hrr, ext = decode_address(frame, pos)
+        print("RPT: ", rpt_addr)
+        pos += 7
+        
+    ctrl = frame[pos]
+    pos += 1
+    if (ctrl & 0x3) == 0x3:
+        #(pid,) = struct.unpack("<B", frame[pos])
+        pid = frame[pos]
+        print("PID="+str(pid))
+        pos += 1
+        
+    elif (ctrl & 0x3) == 0x1:
+        # decode_sframe(ctrl, frame, pos)
+        print("SFRAME")
+        return None
+    elif (ctrl & 0x1) == 0x0:
+        # decode_iframe(ctrl, frame, pos)
+        print("IFRAME")
+        return None
+
+    result = frame[2:len(frame) - 1] #Cut FEND and COMMAND bytes form kiss frame and transmit as is to RF
     return result
 
 
