@@ -13,7 +13,9 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+import datetime
+import time
+import config
 import sys
 from asyncio import QueueEmpty
 import traceback
@@ -24,6 +26,14 @@ from pySX127x.SX127x.board_config import BOARD
 import time
 #import KissHelper
 
+logpath='/var/log/lora/lora.log'
+
+def logf(message):
+    timestamp = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S - ')
+    fileLog = open(config.logpath,"a")
+    fileLog.write(timestamp + message+"\n")
+    print(timestamp + message+"\n")
+    fileLog.close()
 
 class LoraAprsKissTnc(LoRa):
     LORA_APRS_HEADER = b"<\xff\x01"
@@ -37,9 +47,9 @@ class LoraAprsKissTnc(LoRa):
     server = None
 
     # init has LoRa APRS default config settings - might be initialized different when creating object with parameters
-    def __init__(self, queue, server, frequency=433.775, preamble=8, spreadingFactor=12, bandwidth=BW.BW125,
-                 codingrate=CODING_RATE.CR4_5, appendSignalReport = True, paSelect = 1, outputPower = 15, verbose=False):
-        # Init SX127x
+    def __init__(self, queue, server, frequency=config.frequency, preamble=config.preamble, spreadingFactor=config.spreadingFactor, bandwidth=eval(config.bandwidth),
+                 codingrate=eval(config.codingrate), appendSignalReport = config.APPEND_SIGNAL_REPORT, paSelect = config.paSelect, outputPower = config.outputPower, sync_word = config.sync_word, verbose=False):    
+    # Init SX127x
         BOARD.setup()
 
         super(LoraAprsKissTnc, self).__init__(verbose)
@@ -55,6 +65,8 @@ class LoraAprsKissTnc(LoRa):
         self.set_low_data_rate_optim(True)
         self.set_coding_rate(codingrate)
         self.set_ocp_trim(100)
+        
+        self.set_sync_word(sync_word)
 
         self.set_pa_config(paSelect, outputPower)
         self.set_max_payload_length(255)
@@ -77,8 +89,11 @@ class LoraAprsKissTnc(LoRa):
                             if self.aprs_data_type(data) == self.DATA_TYPE_THIRD_PARTY:
                                 # remove third party thing
                                 data = data[data.find(self.DATA_TYPE_THIRD_PARTY) + 1:]
+                            if config.TX_OE_Style:
                                 data = self.LORA_APRS_HEADER + data
-                            print("LoRa TX: " + repr(data))
+                                logf("LoRa TX OE Syle packet: " + repr(data))
+                            else:
+                                logf("LoRa TX Standard AX25 packet: " + repr(data))
                             self.transmit(data)
                         except QueueEmpty:
                             pass
@@ -90,16 +105,16 @@ class LoraAprsKissTnc(LoRa):
     def on_rx_done(self):
         payload = self.read_payload(nocheck=True)
         if not payload:
-            print("No Payload!")
+            logf("No Payload!")
             return
         rssi = self.get_pkt_rssi_value()
         snr = self.get_pkt_snr_value()
         data = bytes(payload)
-        print("LoRa RX[%idBm/%idB, %ibytes]: %s" %(rssi, snr, len(data), repr(data)))
+        logf("LoRa RX[%idBm/%idB, %ibytes]: %s" %(rssi, snr, len(data), repr(data)))
 
         flags = self.get_irq_flags()
         if any([flags[s] for s in ['crc_error', 'rx_timeout']]):
-            print("Receive Error, discarding frame.")
+            logf("Receive Error, discarding frame.")
             # print(self.get_irq_flags())
             self.clear_irq_flags(RxDone=1, PayloadCrcError=1, RxTimeout=1)  # clear rxdone IRQ flag
             self.reset_ptr_rx()
@@ -107,9 +122,6 @@ class LoraAprsKissTnc(LoRa):
             return
 
         if self.server:
-            # remove LoRa-APRS header if present
-            if data[0:len(self.LORA_APRS_HEADER)] == self.LORA_APRS_HEADER:
-                data = data[len(self.LORA_APRS_HEADER):]
             if self.appendSignalReport:
                 # Signal report only for certain frames, not messages!
                 if self.aprs_data_type(data) in self.DATA_TYPES_POSITION:
@@ -122,7 +134,7 @@ class LoraAprsKissTnc(LoRa):
     # self.set_mode(MODE.CAD)
 
     def on_tx_done(self):
-        print("TX DONE")
+        logf("TX DONE")
         self.clear_irq_flags(TxDone=1)  # clear txdone IRQ flag
         self.set_dio_mapping([0] * 6)
         self.set_mode(MODE.RXCONT)
