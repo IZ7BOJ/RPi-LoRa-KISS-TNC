@@ -22,6 +22,22 @@ from AXUDPServer import AXUDPServer
 import config
 from LoraAprsKissTnc import LoraAprsKissTnc
 
+print("########################\r")
+print("#LORA KISS TNC STARTING#\r")
+print("########################\r")
+print("#Lora parameters:\r")
+print("frequency=",config.frequency)
+print("preamble=",config.preamble)
+print("spreadingFactor=",config.spreadingFactor)
+print("bandwidth=",config.bandwidth)
+print("codingrate=",config.codingrate)
+print("APPEND_SIGNAL_REPORT=",config.APPEND_SIGNAL_REPORT)
+print("paSelect=",config.paSelect)
+print("outputPower=",config.outputPower)
+print("TX_OE_Style=",config.TX_OE_Style)
+print("sync_word=",hex(config.sync_word))
+print("########################\r")
+
 # TX KISS frames go here (Digipeater -> TNC)
 kissQueue = Queue()
 
