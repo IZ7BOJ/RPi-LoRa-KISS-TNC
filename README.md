@@ -1,3 +1,8 @@
+# EDIT by IZ7BOJ March 2022
+Added management of ax25 standard packets for compatibility with SARIMESH developments
+Added log files
+Added management of LoRa parameters inside config.py
+
 # Raspberry Pi LoRa KISS TNC
 
 This project emulates a KISS TNC and controls a hardware LoRa transceiver
