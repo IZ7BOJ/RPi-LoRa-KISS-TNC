@@ -37,6 +37,7 @@ class KissServer(Thread):
         self.data = str()
         self.txQueue = txQueue
         self.connection = None
+        logf("RPi-LoRa-KISS-TNC Started...")
 
     def run(self):
         parser = SerialParser(self.queue_frame)
