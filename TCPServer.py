@@ -54,12 +54,12 @@ class KissServer(Thread):
                     break
 
     def queue_frame(self, frame, verbose=True):
-        logf("KISS frame:", repr(frame))
+        logf("KISS frame:" + repr(frame))
         if config.TX_OE_Style:
             decoded_data = KissHelper.decode_kiss_OE(frame)
         else:
             decoded_data = KissHelper.decode_kiss_AX25(frame)
-        logf("Decoded:", decoded_data)
+        logf("Decoded:" + repr(decoded_data))
         
         self.txQueue.put(decoded_data, block=False)
 
