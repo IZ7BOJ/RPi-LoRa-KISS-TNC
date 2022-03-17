@@ -26,8 +26,6 @@ from pySX127x.SX127x.board_config import BOARD
 import time
 #import KissHelper
 
-logpath='/var/log/lora/lora.log'
-
 def logf(message):
     timestamp = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S - ')
     fileLog = open(config.logpath,"a")
