@@ -66,7 +66,7 @@ class LoraAprsKissTnc(LoRa):
         
         self.set_sync_word(sync_word)
 
-        self.set_pa_config(paSelect, outputPower)
+        self.set_pa_config(paSelect, 7, outputPower)
         self.set_max_payload_length(255)
         self.set_dio_mapping([0] * 6)
         self.server = server
