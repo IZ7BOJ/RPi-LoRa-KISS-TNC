@@ -31,7 +31,8 @@ bandwidth="BW.BW125"
 codingrate="CODING_RATE.CR4_5"
 #Possible CODING_RATE values: CR4_5,CR4_6,CR4_7,CR4_8,
 APPEND_SIGNAL_REPORT = True
-paSelect = 1
-outputPower = 0
+paSelect = 1 #1 enables output up to 17dBm
+outputPower = 15 
+#Possible outputPower values: 0->2dBm ...15->17dBm
 TX_OE_Style = False # if true, tx RF packets are in OE Style, otherwise in standard AX25
 sync_word = 0x12
